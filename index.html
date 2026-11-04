@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>3D Visualization By Adeeb — Architectural Rendering</title>
+  <meta name="description" content="Photoreal architectural 3D visualization — interiors, exteriors and walkthrough animations for developers, builders and architectural firms across India, the Gulf and Europe.">
+  <meta name="theme-color" content="#0b0a09">
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+  <!-- Link previews (WhatsApp, LinkedIn, Instagram, X) -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="3D Visualization By Adeeb">
+  <meta property="og:description" content="Photoreal interiors, exteriors and walkthroughs for developers, builders and architects across India, the Gulf and Europe.">
+  <meta property="og:url" content="https://adeebdesigns.in/">
+  <meta property="og:image" content="https://adeebdesigns.in/assets/og.jpg">
+  <link rel="canonical" href="https://adeebdesigns.in/">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Manrope:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script>
+    // Real visible height, so the intro "A" matches the 3D lamp on phones too
+    (function () {
+      var set = function () { document.documentElement.style.setProperty('--ih', innerHeight + 'px'); };
+      set();
+      addEventListener('resize', set);
+    })();
+  </script>
+  <script type="importmap">
+    { "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+    } }
+  </script>
+</head>
+<body class="is-locked">
+
+  <!-- Intro gate: the "A" draws itself, then morphs into the pendant lamp over the desk -->
+  <div class="gate" id="gate">
+    <svg class="gate__mark" viewBox="0 0 120 120" aria-hidden="true">
+      <defs>
+        <linearGradient id="beamGrad" gradientUnits="userSpaceOnUse" x1="0" y1="108" x2="0" y2="520">
+          <stop offset="0" stop-color="#ffd9a0" stop-opacity=".55" />
+          <stop offset="1" stop-color="#ffd9a0" stop-opacity="0" />
+        </linearGradient>
+        <radialGradient id="glowGrad">
+          <stop offset="0" stop-color="#fff3dc" />
+          <stop offset=".4" stop-color="#ffc98a" stop-opacity=".6" />
+          <stop offset="1" stop-color="#ffc98a" stop-opacity="0" />
+        </radialGradient>
+      </defs>
+      <polygon id="gBeam" class="gate__fill" points="-10,108 130,108 340,520 -220,520" fill="url(#beamGrad)" />
+      <ellipse id="gGlow" class="gate__fill" cx="60" cy="110" rx="80" ry="22" fill="url(#glowGrad)" />
+      <line id="gCord" class="gate__cord" x1="60" y1="12" x2="60" y2="12" />
+      <polygon id="gShade" class="gate__fill" points="60,12 -10,108 130,108" fill="#2a2420" />
+      <rect class="gate__draw" id="gFrame" x="4" y="4" width="112" height="112" pathLength="1" />
+      <line class="gate__draw" id="gLegL" x1="60" y1="12" x2="16" y2="108" pathLength="1" />
+      <line class="gate__draw" id="gLegR" x1="60" y1="12" x2="104" y2="108" pathLength="1" />
+      <line class="gate__draw" id="gBar" x1="34" y1="70" x2="86" y2="70" pathLength="1" />
+      <line class="gate__draw" id="gBase" x1="8" y1="108" x2="112" y2="108" pathLength="1" />
+    </svg>
+    <p class="gate__name">3D Visualization <em>By Adeeb</em></p>
+    <p class="gate__count"><span id="gateCount">0</span>%</p>
+  </div>
+
+  <!-- 3D scene -->
+  <canvas id="scene" aria-hidden="true"></canvas>
+  <!-- The render revealed after the camera passes through the window.
+       To change it, replace assets/img/window-reveal.webp -->
+  <div class="veil" id="veil"><img src="assets/img/window-reveal.webp" alt=""></div>
+  <div class="flash" id="flash"></div>
+
+  <header class="nav" id="nav">
+    <a href="#top" class="nav__brand">3D Visualization <em>By Adeeb</em></a>
+    <nav class="nav__links">
+      <a href="#work">Work</a>
+      <a href="#services">Services</a>
+      <a href="#process">Process</a>
+      <a href="#about">About</a>
+      <a href="#contact" class="nav__cta">Start a project</a>
+    </nav>
+  </header>
+
+  <main>
+    <!-- Scroll story: drives the 3D camera -->
+    <section class="story" id="top">
+      <div class="story__captions" id="captions"></div>
+      <div class="story__hint" id="hint"><span>Scroll</span><i></i></div>
+      <p class="story__desk-tip" id="deskTip">Click a print on the desk to open it</p>
+    </section>
+
+    <!-- Portfolio: prints on the desk -->
+    <section class="work" id="work">
+      <div class="section-head">
+        <p class="kicker">Selected Work</p>
+        <h2>On the desk</h2>
+        <div class="filters" id="filters"></div>
+      </div>
+      <div class="desk" id="desk"></div>
+    </section>
+
+    <section class="services" id="services">
+      <div class="section-head">
+        <p class="kicker">Services</p>
+        <h2>What we render</h2>
+      </div>
+      <div class="services__list" id="servicesList"></div>
+      <div class="audiences" id="audiences"></div>
+    </section>
+
+    <section class="process" id="process">
+      <div class="section-head">
+        <p class="kicker">Process</p>
+        <h2>From line to light</h2>
+      </div>
+      <ol class="process__steps" id="processSteps"></ol>
+    </section>
+
+    <section class="about" id="about">
+      <div class="about__img"><img src="assets/img/cafe-4-sm.webp" alt="Beans & Book Café render" loading="lazy"></div>
+      <div class="about__text">
+        <p class="kicker">About</p>
+        <h2 id="aboutTitle"></h2>
+        <p id="aboutText"></p>
+        <div class="clocks" id="clocks"></div>
+      </div>
+    </section>
+
+    <section class="contact" id="contact">
+      <div class="section-head">
+        <p class="kicker">Contact</p>
+        <h2>Tell us about your project</h2>
+        <p class="contact__lead">Send your drawings and we'll reply with a quote and timeline within 24 hours.</p>
+      </div>
+      <form class="form" id="form" name="project-brief" method="POST">
+        <p hidden><label>Don't fill this: <input name="_honey" tabindex="-1" autocomplete="off"></label></p>
+        <label>Name<input name="name" required autocomplete="name"></label>
+        <label>Company<input name="company" autocomplete="organization"></label>
+        <label>Email<input name="email" type="email" required autocomplete="email"></label>
+        <label>WhatsApp / Phone<input name="phone" type="tel" autocomplete="tel"></label>
+        <label>Project type
+          <select name="project_type">
+            <option>Exterior stills</option><option>Interior stills</option>
+            <option>Walkthrough animation</option><option>Full marketing package</option><option>Other</option>
+          </select>
+        </label>
+        <label>Project size
+          <span class="form__unit"><input name="area" inputmode="numeric" placeholder="e.g. 2400">
+            <select name="area_unit" aria-label="Unit"><option>sq ft</option><option>sq m</option></select></span>
+        </label>
+        <label>Number of views<input name="views" inputmode="numeric" placeholder="e.g. 6"></label>
+        <label>Deadline<input name="deadline" type="date"></label>
+        <label>Budget
+          <select name="budget">
+            <option>Not sure yet</option><option>Under $1,000</option><option>$1,000 – $3,000</option>
+            <option>$3,000 – $10,000</option><option>$10,000+</option>
+          </select>
+        </label>
+        <label>Link to drawings (Drive, Dropbox, WeTransfer)<input name="files_link" type="url" placeholder="https://"></label>
+        <label class="form__wide">Message<textarea name="message" rows="4" placeholder="Location, style, references…"></textarea></label>
+        <button class="btn" type="submit">Send brief</button>
+        <p class="form__status" id="formStatus" role="status"></p>
+      </form>
+      <div class="contact__direct" id="contactDirect"></div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <span>© <span id="year"></span> 3D Visualization By Adeeb</span>
+    <span>India · Gulf · Europe · Worldwide</span>
+  </footer>
+
+  <!-- Case study overlay -->
+  <div class="case" id="case" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="caseTitle">
+    <button class="case__close" id="caseClose" aria-label="Close">×</button>
+    <div class="case__stage"><img id="caseImg" alt=""></div>
+    <div class="case__info">
+      <p class="kicker" id="caseMeta"></p>
+      <h3 id="caseTitle"></h3>
+      <p id="caseDesc"></p>
+      <div class="case__thumbs" id="caseThumbs"></div>
+      <div class="case__nav">
+        <button id="casePrev" aria-label="Previous image">←</button>
+        <span id="caseCount"></span>
+        <button id="caseNext" aria-label="Next image">→</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+  <script>
+    // Safety net: if the site's scripts fail entirely (very old browser, blocked
+    // file, broken network), never leave visitors stuck on the intro screen.
+    setTimeout(function () {
+      var gate = document.getElementById('gate');
+      if (!gate || window.__introStarted) return;
+      gate.className += ' is-gone';
+      document.body.classList.remove('is-locked');
+      document.getElementById('veil').style.opacity = 1;
+    }, 15000);
+  </script>
+</body>
+</html>

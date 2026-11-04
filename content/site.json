@@ -1,0 +1,100 @@
+{
+  "brand": {
+    "name": "3D Visualization",
+    "by": "By Adeeb",
+    "tagline": "Architecture, before it exists.",
+    "email": "adeeb.jnec@gmail.com",
+    "whatsapp": "",
+    "instagram": "https://www.instagram.com/er.adeeb/",
+    "linkedin": "https://www.linkedin.com/in/eradeeb/"
+  },
+
+  "story": [
+    { "kicker": "01 — The Line", "title": "Every building begins<br>on a desk.", "text": "A plan. A few lines. A promise to your buyers." },
+    { "kicker": "02 — The Form", "title": "Then it rises.", "text": "We turn your CAD and Revit drawings into precise 3D models." },
+    { "kicker": "03 — The Light", "title": "We give it material,<br>light and life.", "text": "Stone, timber, glass and golden hour, rendered true to your specification." },
+    { "kicker": "04 — The Experience", "title": "Step inside.", "text": "Photoreal interiors, exteriors and walkthroughs that sell before the first brick." }
+  ],
+
+  "projects": [
+    {
+      "slug": "ivory-suite",
+      "title": "Ivory Residence Suite",
+      "category": "Interior",
+      "type": "Private Residence",
+      "description": "A layered master suite in ivory, travertine and smoked bronze, with a sculpted lounge, cove lighting and a statement chandelier.",
+      "images": 6
+    },
+    {
+      "slug": "residence",
+      "title": "Residence 38/39",
+      "category": "Exterior",
+      "type": "Residential Facade",
+      "description": "A contemporary townhouse facade with cascading planters, exposed brick and a cantilevered balcony, rendered in natural daylight.",
+      "images": 3
+    },
+    {
+      "slug": "cafe",
+      "title": "Beans & Book Café",
+      "category": "Commercial",
+      "type": "Hospitality Interior",
+      "description": "A warm café-library with whitewashed brick, bentwood furniture and amber pendants, designed for an evening atmosphere.",
+      "images": 7
+    },
+    {
+      "slug": "bronze-suite",
+      "title": "Bronze Suite",
+      "category": "Interior",
+      "type": "Private Residence",
+      "description": "A bedroom in warm bronze and greige with linear light, fluted panels and soft sculptural seating.",
+      "images": 4
+    },
+    {
+      "slug": "master-bedroom",
+      "title": "Master Bedroom & Study",
+      "category": "Interior",
+      "type": "Private Residence",
+      "description": "Marble feature wall, oak joinery and arched niches, with a calm study corner.",
+      "images": 7
+    },
+    {
+      "slug": "church",
+      "title": "Heritage Church Garden",
+      "category": "Exterior",
+      "type": "Landscape & Heritage",
+      "description": "A stone chapel set in a landscaped courtyard of flowering hedges, lamp posts and timber benches.",
+      "images": 1
+    }
+  ],
+
+  "services": [
+    { "title": "Interior Visualization", "text": "Residential, hospitality and retail interiors with accurate materials and lighting for approvals and marketing.", "image": "assets/img/ivory-suite-1-sm.webp" },
+    { "title": "Exterior Visualization", "text": "Facades, towers, villas and masterplans in day, dusk and night versions for brochures, hoardings and launches.", "image": "assets/img/residence-1-sm.webp" },
+    { "title": "Walkthrough Animation", "text": "Cinematic walkthroughs and flythroughs for sales galleries, social media and off-plan launches.", "image": "assets/img/cafe-7-sm.webp" }
+  ],
+
+  "audiences": [
+    { "title": "Developers & Builders", "text": "Sell off-plan with visuals that make buyers feel at home before ground-breaking." },
+    { "title": "Architectural Firms", "text": "A reliable visualization partner for competitions, client presentations and approvals." }
+  ],
+
+  "process": [
+    { "title": "Brief", "text": "Share drawings (CAD, Revit, SketchUp), references and finishes." },
+    { "title": "Clay & Camera", "text": "We model the space and agree camera angles before any material work." },
+    { "title": "Material & Light", "text": "Finishes, furniture, landscape and lighting, with revision rounds included." },
+    { "title": "Delivery", "text": "4K/8K stills and animations, ready for print, web and screens." }
+  ],
+
+  "about": {
+    "title": "A studio of one, obsessed with light.",
+    "text": "I'm Adeeb, a 3D visualization artist working with builders, developers and architectural firms across India, the Gulf and Europe. I turn drawings into images that help projects get approved, funded and sold."
+  },
+
+  "markets": [
+    { "city": "India", "tz": "Asia/Kolkata" },
+    { "city": "Dubai", "tz": "Asia/Dubai" },
+    { "city": "Riyadh", "tz": "Asia/Riyadh" },
+    { "city": "London", "tz": "Europe/London" },
+    { "city": "Berlin", "tz": "Europe/Berlin" }
+  ]
+}
