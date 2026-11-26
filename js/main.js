@@ -12,7 +12,7 @@ const projects = site.projects;
 const captions = $('#captions');
 site.story.forEach((s, i) => {
   const c = el('div', 'caption');
-  c.innerHTML = `<p class="kicker">${s.kicker}</p>${i === 0 ? '<h1>' : '<h2>'}${s.title}${i === 0 ? '</h1>' : '</h2>'}<p>${s.text}</p>`;
+  c.innerHTML = `<p class="kicker">${s.kicker}</p><h2>${s.title}</h2><p>${s.text}</p>`;
   captions.append(c);
 });
 

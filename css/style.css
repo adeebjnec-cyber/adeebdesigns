@@ -106,7 +106,12 @@ main > section:not(.story) { position: relative; z-index: 3; background: var(--b
 .print.is-hidden { display: none; }
 
 /* ---------- Services ---------- */
+.services__lead { max-width: 760px; margin-top: 20px; color: var(--muted); line-height: 1.7; }
 .services__list { border-top: 1px solid var(--line); }
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.footer__address { font-style: normal; }
+.footer__address a { color: inherit; }
+.services__link { color: var(--gold-2); border-bottom: 1px solid var(--line); }
 .service { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 24px; align-items: center; padding: 36px 0; border-bottom: 1px solid var(--line); position: relative; }
 .service__num { font: 300 18px var(--serif); color: var(--gold); }
 .service h3 { font: 300 clamp(30px, 4vw, 52px)/1.05 var(--serif); }
