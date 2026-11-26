@@ -112,6 +112,11 @@ main > section:not(.story) { position: relative; z-index: 3; background: var(--b
 .footer__address { font-style: normal; }
 .footer__address a { color: inherit; }
 .services__link { color: var(--gold-2); border-bottom: 1px solid var(--line); }
+.wa-float { position: fixed; right: 18px; bottom: 18px; z-index: 60; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-radius: 999px; background: #1f8f4e; color: #fff; font: 500 13px var(--sans); letter-spacing: .04em; box-shadow: 0 10px 30px rgba(0,0,0,.45); transition: transform .3s var(--ease), background .3s; }
+.wa-float:hover { background: #23a35a; transform: translateY(-2px); }
+.wa-float svg { width: 20px; height: 20px; fill: currentColor; flex: none; }
+body.is-locked .wa-float { display: none; }
+@media (max-width: 500px) { .wa-float span { display: none; } .wa-float { padding: 13px; } }
 .service { display: grid; grid-template-columns: 80px 1fr 1fr; gap: 24px; align-items: center; padding: 36px 0; border-bottom: 1px solid var(--line); position: relative; }
 .service__num { font: 300 18px var(--serif); color: var(--gold); }
 .service h3 { font: 300 clamp(30px, 4vw, 52px)/1.05 var(--serif); }
