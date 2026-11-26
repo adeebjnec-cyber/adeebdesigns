@@ -18,6 +18,14 @@
 
   "projects": [
     {
+      "slug": "riyora-salon",
+      "title": "Riyora Salon",
+      "category": "Commercial",
+      "type": "Beauty Salon Interior",
+      "description": "A complete salon fit-out: reception with a sculpted RIYORA arch, a colour bar, mint styling stations under halo-lit mirrors, a planted shampoo trough, pedicure lounge, and makeup and massage cabins.",
+      "images": 12
+    },
+    {
       "slug": "ivory-suite",
       "title": "Ivory Residence Suite",
       "category": "Interior",

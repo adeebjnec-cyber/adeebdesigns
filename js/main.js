@@ -5,7 +5,7 @@ const img = (slug, n, size = '-sm') => `assets/img/${slug}-${n}${size}.webp`;
 // The story always starts at the desk
 if (!location.hash) { history.scrollRestoration = 'manual'; scrollTo(0, 0); }
 
-const site = await fetch('content/site.json').then((r) => r.json());
+const site = await fetch('content/site.json?v=riyora4').then((r) => r.json());
 const projects = site.projects;
 
 /* ---------- Render content ---------- */
@@ -120,7 +120,7 @@ const loaded = new Promise((r) => (ready = () => { count.textContent = 100; r();
 const smooth = (a, b, v) => { const t = Math.min(1, Math.max(0, (v - a) / (b - a))); return t * t * (3 - 2 * t); };
 const flash = $('#flash'), veil = $('#veil'), veilImg = $('#veil img');
 // Driven by the scene's smoothed progress so the white-out lands exactly as the
-// camera reaches the window: light floods the screen, then the bedroom appears.
+// camera steps through the salon's door: light floods the screen, then the render appears.
 function blind(p) {
   flash.style.opacity = smooth(0.8, 0.87, p) * (1 - smooth(0.885, 1, p));
   veil.style.opacity = smooth(0.87, 0.88, p);
@@ -129,9 +129,10 @@ function blind(p) {
 // Never trap visitors behind a slow or stalled download: the timer starts before
 // the 3D library is fetched, and the scene loads without blocking the intro.
 setTimeout(ready, 8000);
-import('./scene.js')
-  .then(({ createScene }) => {
+Promise.all([import('./scene.js?v=riyora2'), fetch('assets/model/riyora_shell.json').then((r) => r.json())])
+  .then(([{ createScene }, shell]) => {
     scene = createScene($('#scene'), {
+      shell,
       prints: projects.map((p) => ({ slug: p.slug, image: img(p.slug, 1) })),
       onLoadProgress: (f) => (count.textContent = Math.max(+count.textContent, Math.round(f * 100))),
       onLoaded: ready,

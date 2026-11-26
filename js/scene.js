@@ -10,12 +10,12 @@ const smooth = (a, b, v) => { const t = clamp((v - a) / (b - a)); return t * t *
 const lerp = (a, b, t) => a + (b - a) * t;
 
 /*
- * The Atelier: a desk at night under a pendant lamp. A plan draws itself
- * on the sheet, the villa rises out of it, gains material in golden-hour sun,
- * glows at dusk, and the camera walks inside.
+ * The Atelier: a desk at night under a pendant lamp. The Riyora salon's floor plan
+ * draws itself on the sheet, the salon's walls rise out of it, gain material in
+ * golden-hour sun, glow at dusk, and the camera walks in through the entrance door.
  * Progress p (0..1) comes from the scroll position of the story section.
  */
-export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintClick, onProgress }) {
+export function createScene(canvas, { shell, prints, onLoadProgress, onLoaded, onPrintClick, onProgress }) {
   const isMobile = matchMedia('(max-width: 760px)').matches;
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
   // Resolution is the biggest cost: start modest, and step down further on slow
@@ -64,7 +64,9 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
   sheet.receiveShadow = true;
   scene.add(sheet);
 
-  /* ---------- Model (rises from the plan) ---------- */
+  /* ---------- Model: the salon rises from its own plan ---------- */
+  // Geometry comes from the Riyora salon Blender model, converted by
+  // tools/riyora_plan_json.py into assets/model/riyora_shell.json
   const model = new THREE.Group();
   model.position.y = 0.02;
   model.visible = false;
@@ -72,148 +74,70 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
 
   // Graphite linework so the rising wireframe reads like the ink plan on white paper
   const edgeMat = new THREE.LineBasicMaterial({ color: 0x1c1c1c, transparent: true, opacity: 1 });
-  const std = (o) => new THREE.MeshStandardMaterial({ transparent: true, opacity: 0, ...o });
+  const std = (o) => new THREE.MeshStandardMaterial({ transparent: true, opacity: 0, side: THREE.DoubleSide, ...o });
   const mats = {
-    solid: std({ color: 0xe2ded6, roughness: 0.88, envMapIntensity: 0.3 }),
-    stone: std({ color: 0xb8a891, map: stoneTexture(), roughness: 0.92, envMapIntensity: 0.25 }),
-    timber: std({ color: 0x7a4e30, roughness: 0.55, envMapIntensity: 0.3 }),
-    panel: std({ color: 0x2e2118, roughness: 0.55, envMapIntensity: 0.15 }),
-    metal: std({ color: 0x2c2620, metalness: 0.85, roughness: 0.35, envMapIntensity: 0.9 }),
-    fabric: std({ color: 0xd3c9b8, roughness: 1, envMapIntensity: 0.15 }),
-    green: std({ color: 0x55633f, roughness: 0.9, flatShading: true, envMapIntensity: 0.2 }),
-    glass: std({ color: 0x0e0d0b, emissive: 0xffa94d, emissiveIntensity: 0, roughness: 0.04, metalness: 0.6, side: THREE.DoubleSide, depthWrite: false, envMapIntensity: 1.4 }),
-    water: std({ color: 0x0f363c, emissive: 0x2a7f86, emissiveIntensity: 0, roughness: 0.05, metalness: 0.2, envMapIntensity: 1.4 }),
-    light: std({ color: 0x1a1612, emissive: 0xffc27a, emissiveIntensity: 0 }),
+    walls: std({ color: 0xe9e5de, roughness: 0.9, envMapIntensity: 0.3 }),
+    floor: std({ color: 0xe6e1d9, roughness: 0.25, envMapIntensity: 0.7 }),
+    metal: std({ color: 0x1d1d1f, metalness: 0.85, roughness: 0.35, envMapIntensity: 0.9 }),
+    glass: std({ color: 0x9fb4b0, metalness: 0.1, roughness: 0.05, envMapIntensity: 1.2 }),
   };
-  const fading = Object.values(mats).filter((m) => m !== mats.glass);
+  const GLASS_MAX = 0.35;   // the shop window stays see-through
+  const fading = Object.values(mats);
 
-  const shadowCasters = [];
-  function add(geo, x, y, z, kind, { edges = true, rotY = 0 } = {}) {
-    const mesh = new THREE.Mesh(geo, mats[kind]);
-    mesh.position.set(x, y, z);
-    mesh.rotation.y = rotY;
+  const meshFrom = (positions, mat) => {
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geo.computeVertexNormals();
+    const mesh = new THREE.Mesh(geo, mat);
     mesh.receiveShadow = true;
-    if (kind !== 'glass' && kind !== 'light' && kind !== 'water') shadowCasters.push(mesh);
     model.add(mesh);
-    if (edges) {
-      const e = new THREE.LineSegments(new THREE.EdgesGeometry(geo, 20), edgeMat);
-      e.position.copy(mesh.position);
-      e.rotation.copy(mesh.rotation);
-      model.add(e);
-    }
     return mesh;
-  }
-  // Boxes are placed by their bottom face, like a plan extruded upwards
-  function box(w, h, d, x, y, z, kind, opts) {
-    return add(new THREE.BoxGeometry(w, h, d), x, y + h / 2, z, kind, opts);
-  }
+  };
+  const wallMesh = meshFrom(shell.walls, mats.walls);
+  meshFrom(shell.floor, mats.floor);
+  const frameMesh = meshFrom(shell.frames, mats.metal);
+  meshFrom(shell.glass, mats.glass);
+  model.add(new THREE.LineSegments(new THREE.EdgesGeometry(wallMesh.geometry, 20), edgeMat));
+  const shadowCasters = [wallMesh, frameMesh];
+  const box = (w, h, d, x, y, z, mat) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x, y + h / 2, z);
+    model.add(mesh);
+    return mesh;
+  };
 
-  // Ground: stone plinth, entry steps, timber deck, pool with coping
-  box(14, 0.15, 9, 1, 0, 0.2, 'stone');
-  box(3, 0.1, 0.35, -2.6, 0, 4.88, 'stone');
-  box(3, 0.05, 0.35, -2.6, 0, 5.23, 'stone');
-  box(4.2, 0.04, 2, -2.6, 0.15, 3.65, 'timber');
-  for (let x = -4.5; x <= -0.6; x += 0.3) box(0.012, 0.005, 2, x, 0.19, 3.65, 'metal', { edges: false });
-  box(5.4, 0.04, 2.1, 4.2, 0.15, 3.55, 'stone');
-  box(5, 0.03, 1.7, 4.2, 0.175, 3.55, 'water');
-
-  // Glazed living room, with furniture you can see through the glass
-  box(7, 1.5, 4.5, -1.5, 0.15, 0.3, 'glass');
-  box(1.8, 0.16, 0.7, -3.8, 0.15, -0.9, 'fabric');
-  box(1.8, 0.34, 0.16, -3.8, 0.15, -1.3, 'fabric');
-  box(0.8, 0.12, 0.5, -3.8, 0.15, 0.05, 'timber');
-  box(1.2, 0.04, 0.6, 0.6, 0.6, -0.6, 'timber');
-  box(0.08, 0.45, 0.08, 0.6, 0.15, -0.6, 'metal', { edges: false });
-  box(0.025, 1.05, 0.025, -4.7, 0.15, 0.2, 'metal', { edges: false });
-  box(0.16, 0.16, 0.16, -4.7, 1.2, 0.2, 'light', { edges: false });
-
-  // Kitchen block with a bronze entrance door on its east side, under the cantilever
-  box(2.6, 1.5, 4.5, 3.3, 0.15, 0.3, 'stone');
-  box(0.03, 1.15, 0.9, 4.615, 0.15, 0.45, 'metal');
-
-  // Stair core with a vertical slot window
-  box(1.4, 3.3, 1.4, -4.4, 0.15, -1.5, 'stone');
-  box(0.28, 2.4, 0.03, -4.4, 0.5, -0.785, 'glass');
-
-  // Upper volume: plaster box cantilevering east, glazed band behind timber fins
-  box(10, 1.35, 4.1, 2, 1.65, -0.5, 'solid');
-  box(9.4, 0.85, 0.03, 2, 1.9, 1.565, 'glass');
-  for (let x = -2.7; x <= 6.75; x += 0.35) box(0.05, 1.15, 0.16, x, 1.75, 1.66, 'timber');
-  // Downlights under the cantilever
-  for (const z of [-1.6, 0, 1.2]) box(0.14, 0.01, 0.14, 6.1, 1.635, z, 'light', { edges: false });
-
-  // Roof slab with bronze fascia and a glass balustrade
-  box(10.8, 0.14, 5, 2, 3.0, -0.35, 'solid');
-  box(10.8, 0.05, 0.03, 2, 2.98, 2.165, 'metal', { edges: false });
-  box(10.4, 0.35, 0.02, 2, 3.14, 1.95, 'glass');
-
-  // Steel columns under the cantilever
-  box(0.12, 1.5, 0.12, 6.7, 0.15, 1.3, 'metal');
-  box(0.12, 1.5, 0.12, 6.7, 0.15, -2.3, 'metal');
-
-  // Garden bollards along the deck and pool
-  const BOLLARDS = [[-4.9, 4.55], [-0.3, 4.55], [1.3, 4.5], [7.2, 4.5]];
-  for (const [x, z] of BOLLARDS) box(0.07, 0.3, 0.07, x, 0.15, z, 'light', { edges: false });
-
-  // Low-poly trees
-  const TREES = [[-6.3, 3.4, 1], [7.5, -3.4, 1.2], [-6.4, -3.4, 0.85], [7.4, 3.8, 0.7]];
-  for (const [x, z, s] of TREES) {
-    add(new THREE.CylinderGeometry(0.05 * s, 0.07 * s, 1.2 * s, 6), x, 0.15 + 0.6 * s, z, 'timber');
-    add(new THREE.IcosahedronGeometry(0.75 * s, 0), x, 0.15 + 1.45 * s, z, 'green', { rotY: x });
-  }
-
-  // Mullions on the glazed living room
-  const mull = [];
-  for (let x = -5; x <= 2.01; x += 0.875) mull.push(x, 0.15, 2.56, x, 1.65, 2.56);
-  mull.push(-5, 0.95, 2.56, 2, 0.95, 2.56);
-  const mullGeo = new THREE.BufferGeometry();
-  mullGeo.setAttribute('position', new THREE.Float32BufferAttribute(mull, 3));
-  model.add(new THREE.LineSegments(mullGeo, edgeMat));
-
-  // Back wall of the living room with a window pouring warm light into the room.
-  // The camera walks towards it until the light blinds the screen.
-  const WX = -1.5, WZ = -1.9, WY0 = 0.3, WY1 = 1.4, WW = 0.9, WYC = (WY0 + WY1) / 2;
-  box(1.05, 1.5, 0.1, WX - WW / 2 - 0.525, 0.15, WZ, 'panel');
-  box(1.05, 1.5, 0.1, WX + WW / 2 + 0.525, 0.15, WZ, 'panel');
-  box(WW, WY0 - 0.15, 0.1, WX, 0.15, WZ, 'panel');
-  box(WW, 1.65 - WY1, 0.1, WX, WY1, WZ, 'panel');
-  box(0.025, WY1 - WY0, 0.03, WX, WY0, WZ, 'metal', { edges: false });
-  box(WW, 0.025, 0.03, WX, WYC + 0.12, WZ, 'metal', { edges: false });
-  const windowMat = new THREE.MeshBasicMaterial({ color: 0x000000, toneMapped: false });
-  const windowPane = new THREE.Mesh(new THREE.PlaneGeometry(WW, WY1 - WY0), windowMat);
-  windowPane.position.set(WX, WYC, WZ - 0.03);
+  // The entrance arch: at dusk the lit salon glows through it, and the camera walks up
+  // the street and in through the door until the light blinds the screen.
+  // A light panel just inside the facade fills the arch; the wall around hides its corners.
+  const HERO = shell.hero, WX = HERO.x, WYC = HERO.height / 2;
+  const EYE = 1.55 * shell.unitsPerMetre;
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0x000000, toneMapped: false, side: THREE.DoubleSide });
+  const windowPane = new THREE.Mesh(new THREE.PlaneGeometry(HERO.width * 1.08, HERO.height * 1.04), windowMat);
+  windowPane.position.set(WX, HERO.height * 0.52, HERO.zInner - 0.04);
   model.add(windowPane);
   const windowGlow = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTexture(), color: 0xffd9a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false }));
-  windowGlow.position.set(WX, WYC, WZ + 0.08);
+  windowGlow.position.set(WX, WYC, HERO.zOuter + 0.1);
   model.add(windowGlow);
-  // Light shaft: an open cone fading away from the window, falling towards the floor
-  const shaftGeo = new THREE.CylinderGeometry(0.5, 1.0, 3.2, 32, 1, true);
-  shaftGeo.translate(0, -1.6, 0);
+  // Light shaft: an open cone of warm light spilling out of the door onto the street
+  const shaftGeo = new THREE.CylinderGeometry(HERO.width * 0.45, HERO.width * 0.8, 4, 32, 1, true);
+  shaftGeo.translate(0, -2, 0);
   const shaftMat = new THREE.MeshBasicMaterial({ map: shaftTexture(), color: 0xffd6a0, transparent: true, opacity: 0, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide });
   const shaft = new THREE.Mesh(shaftGeo, shaftMat);
-  shaft.position.set(WX, WYC, WZ + 0.05);
-  shaft.quaternion.setFromUnitVectors(V(0, -1, 0), V(0, -0.55, 1).normalize());
+  shaft.position.set(WX, WYC, HERO.zOuter + 0.05);
+  shaft.quaternion.setFromUnitVectors(V(0, -1, 0), V(0, -0.45, 1).normalize());
   model.add(shaft);
 
   /* ---------- Plan (draws itself) ---------- */
-  // A working drawing of the villa's ground floor, at the same coordinates as the
-  // model. The ink linework draws in first; poché, labels and dimensions fade in
-  // afterwards from a canvas layer (see drawAnnotations).
+  // The shell's floor plan, cut at 1.2 m from the same model, so the walls rise
+  // exactly out of the drawn walls. The ink linework draws in first; poché, labels
+  // and dimensions fade in afterwards from a canvas layer (see drawAnnotations).
   const planSegs = [];
   const seg = (x1, z1, x2, z2) => planSegs.push([x1, z1, x2, z2]);
   const rect = (x1, z1, x2, z2) => { seg(x1, z1, x2, z1); seg(x2, z1, x2, z2); seg(x2, z2, x1, z2); seg(x1, z2, x1, z1); };
-  const arc = (cx, cz, r, a0 = 0, a1 = Math.PI * 2, n = 20, wobble = 0) => {
-    const at = (t) => r * (1 + wobble * Math.sin(t * 9));
+  const arc = (cx, cz, r, a0 = 0, a1 = Math.PI * 2, n = 20) => {
     for (let i = 0; i < n; i++) {
       const t0 = a0 + (a1 - a0) * i / n, t1 = a0 + (a1 - a0) * (i + 1) / n;
-      seg(cx + Math.cos(t0) * at(t0), cz + Math.sin(t0) * at(t0), cx + Math.cos(t1) * at(t1), cz + Math.sin(t1) * at(t1));
-    }
-  };
-  const dashed = (x1, z1, x2, z2, on = 0.3, off = 0.12) => {
-    const len = Math.hypot(x2 - x1, z2 - z1), dx = (x2 - x1) / len, dz = (z2 - z1) / len;
-    for (let d = 0; d < len; d += on + off) {
-      const e = Math.min(len, d + on);
-      seg(x1 + dx * d, z1 + dz * d, x1 + dx * e, z1 + dz * e);
+      seg(cx + Math.cos(t0) * r, cz + Math.sin(t0) * r, cx + Math.cos(t1) * r, cz + Math.sin(t1) * r);
     }
   };
 
@@ -222,71 +146,43 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
   rect(1.5, 5.3, 9.1, 6.1);
   seg(5.2, 5.3, 5.2, 6.1); seg(7.4, 5.3, 7.4, 6.1);
 
-  // Structural grid with bubbles and dimension strings
-  const GX = [-5, -1.5, 2, 4.6, 6.7], GZ = [-1.95, 2.55];
-  for (const x of GX) { dashed(x, -4.75, x, 4.9, 0.5, 0.15); arc(x, -5.05, 0.25, 0, Math.PI * 2, 16); }
-  for (const z of GZ) { dashed(-7.3, z, 8.4, z, 0.5, 0.15); arc(-7.6, z, 0.25, 0, Math.PI * 2, 16); }
-  seg(GX[0], -4.5, GX[GX.length - 1], -4.5);
-  for (const x of GX) seg(x - 0.08, -4.42, x + 0.08, -4.58);
-  seg(-6.9, GZ[0], -6.9, GZ[1]);
-  for (const z of GZ) seg(-6.98, z - 0.08, -6.82, z + 0.08);
+  // Walls as cut at 1.2 m
+  shell.plan.cut.forEach((s) => seg(...s));
+  // Shop window: three lines across the glazing
+  for (const [x1, z1, x2, z2] of shell.plan.windows) {
+    const zm = (z1 + z2) / 2, d = 0.06;
+    for (const z of [zm - d, zm, zm + d]) seg(x1, z, x2, z);
+  }
+  // Doors: the leaf drawn open at 90 degrees with its swing arc
+  for (const [x1, z1, x2, z2] of shell.plan.doors) {
+    if (x2 - x1 >= z2 - z1) {          // door in a wall running along x
+      const w = x2 - x1, zm = (z1 + z2) / 2;
+      seg(x1, zm, x1, zm - w); arc(x1, zm, w, -Math.PI / 2, 0, 12);
+    } else {                            // door in a wall running along z
+      const w = z2 - z1, xm = (x1 + x2) / 2;
+      seg(xm, z1, xm + w, z1); arc(xm, z1, w, 0, Math.PI / 2, 12);
+    }
+  }
+  // Entrance: threshold lines and the open leaf swung into the salon
+  const HL = WX - HERO.width / 2, HR = WX + HERO.width / 2;
+  seg(HL, HERO.zOuter, HR, HERO.zOuter); seg(HL, HERO.zInner, HR, HERO.zInner);
+  seg(HR, HERO.zInner, HR, HERO.zInner - HERO.width * 0.5);
+  // Entrance arrow on the street
+  seg(WX, HERO.zOuter + 0.85, WX, HERO.zOuter + 0.25);
+  seg(WX, HERO.zOuter + 0.25, WX - 0.12, HERO.zOuter + 0.42); seg(WX, HERO.zOuter + 0.25, WX + 0.12, HERO.zOuter + 0.42);
 
-  // Terrace edge, entry steps, and the upper floor above (dashed)
-  rect(-6, -4.3, 8, 4.7);
-  rect(-4.1, 4.7, -1.1, 4.95); rect(-4.1, 4.95, -1.1, 5.2);
-  dashed(-3, -2.55, 7, -2.55, 0.2, 0.12); dashed(7, -2.55, 7, 1.55, 0.2, 0.12);
-  dashed(7, 1.55, -3, 1.55, 0.2, 0.12); dashed(-3, 1.55, -3, -2.55, 0.2, 0.12);
-
-  // Cut walls (filled black in the annotation layer), with openings
-  const walls = [
-    [-3.7, -2.025, -1.95, -1.875], [-1.05, -2.025, 2.075, -1.875],   // living back wall, window gap
-    [1.925, -1.875, 2.075, 0.2], [1.925, 1.1, 2.075, 2.475],         // partition, door gap
-    [2.075, -2.025, 4.675, -1.875], [2.075, 2.475, 4.675, 2.625],    // kitchen north, south
-    [4.525, -1.875, 4.675, 0], [4.525, 0.9, 4.675, 2.475],           // kitchen east, entrance gap
-    [-5.1, -2.2, -3.7, -2.05], [-5.1, -0.95, -3.7, -0.8],            // stair core
-    [-5.1, -2.05, -4.95, -0.95], [-3.85, -2.05, -3.7, -1.55],
-  ];
-  walls.forEach((w) => rect(...w));
-  // Glazing on the living room's front and west side, with mullions
-  for (const z of [2.51, 2.59]) seg(-5, z, 1.925, z);
-  for (const x of [-5.04, -4.96]) seg(x, -0.8, x, 2.59);
-  for (let x = -5; x <= 2; x += 0.875) seg(x, 2.47, x, 2.63);
-  // The back window the camera walks towards
-  for (const z of [-2.025, -1.95, -1.875]) seg(-1.95, z, -1.05, z);
-  // Doors and their swings
-  seg(2, 0.2, 1.1, 0.2); arc(2, 0.2, 0.9, Math.PI / 2, Math.PI, 12);
-  seg(4.6, 0, 3.7, 0); arc(4.6, 0, 0.9, Math.PI / 2, Math.PI, 12);
-  // Stair: two flights with an up arrow
-  seg(-4.4, -2.05, -4.4, -0.95);
-  for (let z = -1.95; z < -1; z += 0.15) { seg(-4.95, z, -4.45, z); seg(-4.35, z, -3.85, z); }
-  seg(-4.7, -1.1, -4.7, -1.9); seg(-4.7, -1.9, -4.8, -1.75); seg(-4.7, -1.9, -4.6, -1.75);
-
-  // Furniture
-  rect(-4.7, -1.38, -2.9, -0.55); seg(-4.7, -1.22, -2.9, -1.22);   // sofa
-  rect(-4.85, -0.45, -2.6, 0.75);                                    // rug
-  rect(-4.2, -0.2, -3.4, 0.3);                                       // coffee table
-  arc(-4.7, 0.2, 0.12, 0, Math.PI * 2, 10);                          // floor lamp
-  rect(0, -0.9, 1.2, -0.3);                                          // dining table + chairs
-  for (const x of [0.2, 0.6, 1]) { rect(x - 0.15, -1.2, x + 0.15, -0.95); rect(x - 0.15, -0.25, x + 0.15, 0); }
-  rect(2.1, -1.85, 4.5, -1.3);                                       // kitchen counter, sink, hob
-  rect(2.8, -1.75, 3.4, -1.42);
-  for (const x of [3.8, 4.2]) for (const z of [-1.7, -1.45]) arc(x, z, 0.09, 0, Math.PI * 2, 8);
-  rect(2.4, 0.3, 3.6, 1);                                            // island
-
-  // Outside: deck boards, pool with steps, columns, trees, garden lights
-  rect(-4.7, 2.65, -0.5, 4.65);
-  for (let x = -4.4; x < -0.5; x += 0.3) seg(x, 2.65, x, 4.65);
-  rect(1.5, 2.5, 6.9, 4.6); rect(1.7, 2.7, 6.7, 4.4);
-  for (const x of [1.95, 2.2, 2.45]) seg(x, 2.7, x, 3.3);
-  for (const [x, z] of [[6.7, 1.3], [6.7, -2.3]]) { rect(x - 0.08, z - 0.08, x + 0.08, z + 0.08); seg(x - 0.08, z - 0.08, x + 0.08, z + 0.08); }
-  for (const [x, z, s] of TREES) { arc(x, z, 0.75 * s, 0, Math.PI * 2, 36, 0.08); seg(x - 0.12, z, x + 0.12, z); seg(x, z - 0.12, x, z + 0.12); }
-  for (const [x, z] of BOLLARDS) arc(x, z, 0.07, 0, Math.PI * 2, 8);
+  // Overall dimension strings
+  const B = shell.bounds, DIM_TOP = B.minZ - 0.6, DIM_LEFT = B.minX - 0.6;
+  seg(B.minX, DIM_TOP, B.maxX, DIM_TOP);
+  seg(DIM_LEFT, B.minZ, DIM_LEFT, B.maxZ);
+  for (const x of [B.minX, B.maxX]) { seg(x, DIM_TOP - 0.15, x, B.minZ - 0.1); seg(x - 0.08, DIM_TOP + 0.08, x + 0.08, DIM_TOP - 0.08); }
+  for (const z of [B.minZ, B.maxZ]) { seg(DIM_LEFT - 0.15, z, B.minX - 0.1, z); seg(DIM_LEFT - 0.08, z + 0.08, DIM_LEFT + 0.08, z - 0.08); }
 
   // North arrow
   arc(-8.1, 4.9, 0.5, 0, Math.PI * 2, 24);
   seg(-8.1, 5.35, -8.1, 4.45); seg(-8.1, 4.45, -8.28, 4.8); seg(-8.1, 4.45, -7.92, 4.8);
 
-  // Annotation layer: poché, water, room names, dimensions, title block
+  // Annotation layer: poché, room name, dimensions, title block
   const annoCanvas = document.createElement('canvas');
   annoCanvas.width = 2048;
   annoCanvas.height = Math.round(2048 * SHEET_D / SHEET_W);
@@ -296,7 +192,6 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
   function drawAnnotations() {
     const g = annoCanvas.getContext('2d'), W = annoCanvas.width, H = annoCanvas.height, k = W / SHEET_W;
     const px = (x, z) => [(x + SHEET_W / 2) * k, (z + SHEET_D / 2) / SHEET_D * H];
-    const fill = (x1, z1, x2, z2) => { const [a, b] = px(x1, z1); g.fillRect(a, b, (x2 - x1) * k, (z2 - z1) * k); };
     const text = (s, x, z, size, { weight = 500, font = 'Manrope', style = 'normal', align = 'center', rotate = 0, spacing = 0.12 } = {}) => {
       const [a, b] = px(x, z);
       g.save();
@@ -310,29 +205,32 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
     };
     g.clearRect(0, 0, W, H);
     g.textBaseline = 'middle';
-    g.fillStyle = 'rgba(126,170,184,.22)';
-    fill(1.7, 2.7, 6.7, 4.4);
+    // Solid walls from the wall tops, with door and window openings cut back out
     g.fillStyle = '#141414';
-    walls.forEach((w) => fill(...w));
-    for (const [x, z] of [[6.7, 1.3], [6.7, -2.3]]) fill(x - 0.08, z - 0.08, x + 0.08, z + 0.08);
+    for (const t of shell.plan.tops) {
+      g.beginPath();
+      for (let i = 0; i < 6; i += 2) g.lineTo(...px(t[i], t[i + 1]));
+      g.closePath();
+      g.fill();
+    }
+    for (const [x1, z1, x2, z2] of [...shell.plan.windows, ...shell.plan.doors]) {
+      const [a, b] = px(Math.min(x1, x2), Math.min(z1, z2)), [c, d] = px(Math.max(x1, x2), Math.max(z1, z2));
+      g.clearRect(a - 1, b - 1, c - a + 2, d - b + 2);
+    }
+    {
+      const [a, b] = px(HL, HERO.zInner), [c, d] = px(HR, HERO.zOuter);
+      g.clearRect(a, b - 2, c - a, d - b + 4);
+    }
 
-    text('LIVING / DINING', -1.5, 0.95, 0.3);
-    text('31.5 m²', -1.5, 1.35, 0.18, { weight: 400 });
-    text('KITCHEN', 3.3, 1.6, 0.26);
-    text('11.7 m²', 3.3, 1.97, 0.18, { weight: 400 });
-    text('UP', -4.7, -0.98, 0.1, { weight: 600 });
-    text('TERRACE', -2.6, 4.3, 0.24);
-    text('POOL', 4.2, 3.6, 0.26);
-    text('ENTRY', 5.65, 0.45, 0.2);
-    text('▸', 5.05, 0.45, 0.16);
-    GX.forEach((x, i) => text(String(i + 1), x, -5.04, 0.24, { weight: 600, spacing: 0 }));
-    GZ.forEach((z, i) => text('AB'[i], -7.6, z + 0.01, 0.24, { weight: 600, spacing: 0 }));
-    GX.slice(1).forEach((x, i) => text(String(Math.round((x - GX[i]) * 1000)), (x + GX[i]) / 2, -4.66, 0.15, { weight: 400, spacing: 0.05 }));
-    text(String(Math.round((GZ[1] - GZ[0]) * 1000)), -7.06, (GZ[0] + GZ[1]) / 2, 0.15, { weight: 400, spacing: 0.05, rotate: -Math.PI / 2 });
+    text('ENTRANCE', WX, HERO.zOuter + 1.05, 0.15, { weight: 600 });
+    text('SALON', (B.minX + B.maxX) / 2 + 0.6, (B.minZ + B.maxZ) / 2 + 1.6, 0.3);
+    const mm = (units) => String(Math.round(units / shell.unitsPerMetre * 1000));
+    text(mm(B.maxX - B.minX), (B.minX + B.maxX) / 2, DIM_TOP - 0.18, 0.16, { weight: 400, spacing: 0.05 });
+    text(mm(B.maxZ - B.minZ), DIM_LEFT - 0.18, (B.minZ + B.maxZ) / 2, 0.16, { weight: 400, spacing: 0.05, rotate: -Math.PI / 2 });
     text('N', -8.1, 4.15, 0.22, { weight: 600, spacing: 0 });
     text('ALL DIMENSIONS IN MM', -8.8, 5.85, 0.11, { weight: 400, align: 'left' });
 
-    text('PRIVATE VILLA', 3.35, 5.58, 0.3, { weight: 600 });
+    text('RIYORA SALON', 3.35, 5.58, 0.28, { weight: 600 });
     text('GROUND FLOOR PLAN', 3.35, 5.88, 0.13, { weight: 400 });
     text('SCALE 1:100', 6.3, 5.58, 0.14);
     text('DWG  A-101', 6.3, 5.88, 0.13, { weight: 400 });
@@ -408,17 +306,15 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
   Object.assign(sun.shadow.camera, { left: -11, right: 11, top: 11, bottom: -11, near: 1, far: 50 });
   scene.add(sun);
   const sunDay = new THREE.Color(0xfff0dc), sunDusk = new THREE.Color(0xff9a52);
-  const roomLight = new THREE.PointLight(0xffb066, 0, 7, 1.2);
-  roomLight.position.set(-2.8, 1.35, 0.6);
-  // Light pouring in through the back window: aimed into the room so the wall
-  // around the window stays dark and the opening reads as the light source
-  const windowLight = new THREE.SpotLight(0xffd29a, 0, 9, 0.95, 0.6, 1.2);
-  windowLight.position.set(WX, WYC + 0.02, WZ + 0.1);
-  windowLight.target.position.set(WX, 0.15, 2);
-  scene.add(windowLight, windowLight.target);
-  const eaveLight = new THREE.PointLight(0xffc27a, 0, 5, 1.5);
-  eaveLight.position.set(6.1, 1.4, 0);
-  scene.add(roomLight, eaveLight);
+  // Warm light filling the salon at dusk
+  const roomLight = new THREE.PointLight(0xffb066, 0, 14, 1.2);
+  roomLight.position.set((shell.bounds.minX + shell.bounds.maxX) / 2, 2.4, (shell.bounds.minZ + shell.bounds.maxZ) / 2 + 2);
+  // Light pouring out of the open door onto the street: aimed outwards so the facade
+  // around the arch stays dark and the doorway reads as the light source
+  const windowLight = new THREE.SpotLight(0xffd29a, 0, 11, 0.95, 0.6, 1.2);
+  windowLight.position.set(WX, WYC + 0.02, HERO.zInner - 0.1);
+  windowLight.target.position.set(WX, 0.15, HERO.zOuter + 3.5);
+  scene.add(windowLight, windowLight.target, roomLight);
   const bgNight = new THREE.Color(BG), bgDusk = new THREE.Color(0x15100c);
 
   /* ---------- Prints on the desk ---------- */
@@ -464,12 +360,13 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
   // [progress, position, target]
   const keys = [
     [0.00, [0, 24, 7], [0, 0, 0.6]],
-    [0.20, [7, 14, 14], [0, 0.4, 0]],
-    [0.40, [15, 6.5, 10], [1.2, 1.3, 0]],
-    [0.64, [-10, 5.5, 15], [1, 1.3, 0]],
-    [0.76, [-1.5, 1.0, 7], [-1.5, 0.85, -1.9]],
-    // The camera reaches the window here; the rest of the scroll is the slow reveal
-    [0.88, [-1.5, 0.85, -1.5], [-1.5, 0.85, -3]],
+    [0.20, [7, 15, 14], [0, 0.6, 0]],
+    [0.40, [17, 10, 13], [0.5, 0.6, 0]],
+    [0.64, [-13, 11, 16], [0.5, 0.4, 0.5]],
+    // Down on the street in front of the shop, walking towards the lit entrance
+    [0.76, [WX + 0.7, 3.2, HERO.zOuter + 7], [WX, EYE, HERO.zOuter]],
+    // Through the doorway at eye level; the rest of the scroll is the slow reveal
+    [0.88, [WX, EYE, HERO.zInner - 0.5], [WX, EYE * 0.95, HERO.zInner - 6]],
   ];
   let posCurve, tgtCurve;
   function buildPath() {
@@ -584,14 +481,11 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
     annoMat.opacity = smooth(0.75, 1, draw) * (1 - 0.65 * material);
     edgeMat.opacity = 1 - 0.8 * material;
     for (const m of fading) {
-      m.opacity = material;
-      m.transparent = material < 0.99;
-      m.depthWrite = material > 0.5;
+      const glass = m === mats.glass;
+      m.opacity = glass ? material * GLASS_MAX : material;
+      m.transparent = glass || material < 0.99;
+      m.depthWrite = !glass && material > 0.5;
     }
-    mats.glass.opacity = 0.1 + 0.2 * material;
-    mats.glass.emissiveIntensity = 0.14 * dusk;
-    mats.water.emissiveIntensity = 0.35 * dusk;
-    mats.light.emissiveIntensity = 3 * dusk;
     shadowCasters.forEach((m) => (m.castShadow = material > 0.4));
 
     // Night desk lamp -> golden-hour sun -> dusk with the house lit from inside
@@ -609,6 +503,7 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
     hemi.intensity = 0.2 + 0.25 * material;
     // The window glows at dusk and burns brighter as the camera closes in
     const near = smooth(0.74, 0.87, p);
+    windowPane.visible = material > 0.5; // no glass in the wireframe stages
     windowMat.color.setRGB(1, 0.8, 0.55).multiplyScalar(0.25 + 1.1 * dusk + 4 * near);
     windowGlow.material.opacity = 0.75 * dusk + 0.25 * near;
     windowGlow.scale.setScalar(2.2 + 5 * near);
@@ -616,7 +511,6 @@ export function createScene(canvas, { prints, onLoadProgress, onLoaded, onPrintC
     roomLight.intensity = 3 * dusk;
     windowLight.intensity = 4 * dusk + 16 * near;
     renderer.toneMappingExposure = 1 + 2.5 * smooth(0.77, 0.87, p);
-    eaveLight.intensity = 2.5 * dusk;
     scene.background.lerpColors(bgNight, bgDusk, material * (1 - 0.6 * dusk));
     scene.fog.color.copy(scene.background);
     if (p !== pPrev) onProgress?.(p);
@@ -690,28 +584,6 @@ function woodTexture() {
     g.fillStyle = 'rgba(20,10,4,.7)';
     for (let k = 0; k < planks; k++) g.fillRect(0, k * ph, s, 2);
   }, [2.5, 1.6]);
-}
-
-// Coursed limestone: staggered blocks with slight tone variation
-function stoneTexture() {
-  return canvasTexture(512, (g, s) => {
-    g.fillStyle = '#cfc4b3';
-    g.fillRect(0, 0, s, s);
-    const rows = 8, rh = s / rows;
-    for (let r = 0; r < rows; r++) {
-      let x = r % 2 ? -rh * 1.2 : 0;
-      while (x < s) {
-        const w = rh * (1.8 + Math.random() * 1.6), v = 200 + Math.random() * 14;
-        g.fillStyle = `rgb(${v},${v - 10},${v - 24})`;
-        g.fillRect(x + 1, r * rh + 1, w - 2, rh - 2);
-        x += w;
-      }
-    }
-    for (let i = 0; i < 4000; i++) {
-      g.fillStyle = `rgba(0,0,0,${Math.random() * 0.06})`;
-      g.fillRect(Math.random() * s, Math.random() * s, 2, 2);
-    }
-  }, [3, 1.5]);
 }
 
 // Vertical fade for the light shaft: bright at the window, gone at the far end
